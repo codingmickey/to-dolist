@@ -3,6 +3,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const _ = require("lodash");
+const password = require(__dirname + "/password.js");
 
 const app = express();
 
@@ -12,10 +14,15 @@ app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // MongoDB connection and creating todolistDB
-mongoose.connect("mongodb://localhost:27017/todolistDB", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(
+  "mongodb+srv://admin-kartik:" +
+    password.adminPassword +
+    "@cluster0.ywecf.mongodb.net/todolistDB",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }
+);
 
 // itemsSchema
 const itemsSchema = new mongoose.Schema({
@@ -60,7 +67,9 @@ app.get("/", function (req, res) {
             console.log("Successfully Saved default Items to DB.");
           }
         });
-        res.redirect("/");
+        setTimeout(function () {
+          res.redirect("/");
+        }, 1000);
       } else {
         res.render("list", { listTitle: "Today", newListItems: items });
       }
@@ -69,17 +78,31 @@ app.get("/", function (req, res) {
 });
 app.post("/", function (req, res) {
   const itemName = req.body.newItem;
+  const listName = req.body.list;
 
   const item = new Item({
     name: itemName,
   });
-  item.save();
 
-  res.redirect("/");
+  // Check if the user came from home route or any custom route
+  if (listName === "Today") {
+    //Home Route
+    item.save();
+    res.redirect("/");
+  } else {
+    // Custom Route
+    List.findOne({ name: listName }, function (err, foundList) {
+      foundList.items.push(item);
+      foundList.save();
+      setTimeout(function () {
+        res.redirect("/" + listName);
+      }, 1000);
+    });
+  }
 });
 
 app.get("/:customListName", function (req, res) {
-  const customLName = req.params.customListName;
+  const customLName = _.capitalize(req.params.customListName);
   console.log(customLName);
 
   List.findOne({ name: customLName }, function (err, foundList) {
@@ -106,27 +129,36 @@ app.get("/:customListName", function (req, res) {
   });
 });
 
-app.post("/work", function (req, res) {
-  let item = req.body.newItem;
-  workItems.push(item);
-  res.redirect("/work");
-});
-
 app.get("/about", function (req, res) {
   res.render("about");
 });
 
 app.post("/delete", function (req, res) {
   const checkedItemId = req.body.checkbox;
+  const listName = req.body.listName;
 
-  Item.findOneAndDelete({ _id: checkedItemId }, function (err) {
-    if (err) {
-      console.log(err);
-    } else {
-      console.log("Successfully Removed the task!");
-      res.redirect("/");
-    }
-  });
+  // Check if the user came from home route or any custom route
+  if (listName === "Today") {
+    Item.findOneAndDelete({ _id: checkedItemId }, function (err) {
+      if (err) {
+        console.log(err);
+      } else {
+        console.log("Successfully Removed the task!");
+        res.redirect("/");
+      }
+    });
+  } else {
+    // Custom Routes
+    List.findOneAndUpdate(
+      { name: listName },
+      { $pull: { items: { _id: checkedItemId } } },
+      function (err, foundList) {
+        if (!err) {
+          res.redirect("/" + listName);
+        }
+      }
+    );
+  }
 });
 
 app.listen(3000, function () {

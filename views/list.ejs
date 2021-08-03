@@ -16,8 +16,8 @@
       />
       <p><%= listItem.name %></p>
     </div>
+    <input type="hidden" name="listName" value="<%= listTitle %>" />
   </form>
-
   <% }); %>
 
   <form class="item" action="/" method="post">
@@ -27,7 +27,8 @@
       placeholder="New Item"
       autocomplete="off"
     />
-    <button type="submit" name="list">+</button>
+    <!-- Posting the route thru the button -->
+    <button type="submit" name="list" value="<%= listTitle %>">+</button>
   </form>
 </div>
 
